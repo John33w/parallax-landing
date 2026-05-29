@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', sans-serif;
+    scrollbar-gutter: stable;
+    background-color: #0a0608;
+    color: #ffffff;
+  }
+  
+  body {
+    margin: 0;
+    padding: 0;
+  }
+}
+
+@keyframes bobUp {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
