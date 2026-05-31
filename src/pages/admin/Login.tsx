@@ -36,7 +36,7 @@ export default function Login() {
           <p className="text-gray-400 mt-2 text-sm">Enter your credentials to continue</p>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+        <form className="mt-8 space-y-6" onSubmit={handleLogin} autoComplete="off">
           {error && (
             <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-sm text-center">
               {error}
@@ -52,7 +52,7 @@ export default function Login() {
                 id="email-address"
                 name="email"
                 type="email"
-                autoComplete="email"
+                autoComplete="new-password"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -69,7 +69,7 @@ export default function Login() {
                 id="password"
                 name="password"
                 type="password"
-                autoComplete="current-password"
+                autoComplete="new-password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
