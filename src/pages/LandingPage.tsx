@@ -12,8 +12,8 @@ const CURTAIN_LEFT = "/curtain_left.png";
 const CURTAIN_RIGHT = "/curtain_right.png";
 const WORLD_BG = "/world-bg.jpg";
 const BOTTOM_CLOUDS = "/bottom-clouds.png";
-const SCENE3_BG = "/scene3_bg.png";
-const SCENE3_CLOUDS = "/scene3_clouds.png";
+const SCENE3_BG = "/about_bg.jpg";
+const SCENE3_CLOUDS = "/about_clouds.png";
 
 // const CARD_IMAGES = [
 //   "https://images.higgs.ai/?default=1&output=webp&url=https%3A%2F%2Fd8j0ntlcm91z4.cloudfront.net%2Fuser_38xzZboKViGWJOttwIXH07lWA1P%2Fhf_20260525_160507_2ccbb4eb-1469-484f-af25-59168ad9a233.png&w=1280&q=85",
@@ -256,16 +256,7 @@ export default function LandingPage() {
       if (e.deltaY < 0) {
         overscrollRef.current += Math.abs(e.deltaY);
         if (overscrollRef.current > 80) {
-          isRestoringScrollRef.current = true;
-          setActiveScene('main');
-          setTimeout(() => {
-            if (containerRef.current) {
-              const maxScroll = containerRef.current.scrollHeight - window.innerHeight;
-              const targetY = lastScrollY.current > 0 ? lastScrollY.current : maxScroll * 0.60;
-              window.scrollTo({ top: targetY, behavior: 'instant' });
-              setTimeout(() => { isRestoringScrollRef.current = false; }, 1200);
-            }
-          }, 10);
+          handleBackToMain();
           overscrollRef.current = 0;
         }
       } else {
@@ -274,6 +265,19 @@ export default function LandingPage() {
     } else {
       overscrollRef.current = 0;
     }
+  };
+
+  const handleBackToMain = () => {
+    isRestoringScrollRef.current = true;
+    setActiveScene('main');
+    setTimeout(() => {
+      if (containerRef.current) {
+        const maxScroll = containerRef.current.scrollHeight - window.innerHeight;
+        const targetY = lastScrollY.current > 0 ? lastScrollY.current : maxScroll * 0.60;
+        window.scrollTo({ top: targetY, behavior: 'instant' });
+        setTimeout(() => { isRestoringScrollRef.current = false; }, 1200);
+      }
+    }, 10);
   };
 
   // Refs for tracking values inside rAF without triggering re-renders
@@ -383,9 +387,7 @@ export default function LandingPage() {
   }, [isMobile]);
 
   // Derived values for styling
-  const cloudsOpacity = scrollProgress > 0.70 
-    ? clamp(1 - (scrollProgress - 0.70) / 0.15, 0, 1) 
-    : clamp(lerp(0.7, 1, scrollProgress / 0.05), 0, 1);
+  const cloudsOpacity = clamp(lerp(0.7, 1, scrollProgress / 0.05), 0, 1);
   const scene1Opacity = clamp(1 - scrollProgress / 0.15, 0, 1);
   const portalOpacity = scrollProgress > 0.40 ? clamp(1 - (scrollProgress - 0.40) / 0.15, 0, 1) : 1;
   
@@ -407,6 +409,10 @@ export default function LandingPage() {
         </div>
         <div style={{ position: 'absolute', inset: 0, transform: activeScene === 'blogs' ? 'translateY(100%)' : activeScene === 'aboutMe' ? 'translateY(-100%)' : 'translateY(0)', transition: 'transform 1.2s cubic-bezier(0.76, 0, 0.24, 1)' }}>
         
+          {/* SEAM BLENDERS: Minimalistic smooth fade between scenes */}
+          <div style={{ position: 'absolute', top: '-2vh', left: 0, width: '100%', height: '4vh', background: 'linear-gradient(to bottom, transparent, #0a0608 45%, #0a0608 55%, transparent)', zIndex: 100, pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: 'calc(100% - 2vh)', left: 0, width: '100%', height: '4vh', background: 'linear-gradient(to bottom, transparent, #0a0608 45%, #0a0608 55%, transparent)', zIndex: 100, pointerEvents: 'none' }} />
+
         {/* Main Scene (Scene 1 & 2) Container - prevents scaled elements from bleeding */}
         <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
 
@@ -446,29 +452,7 @@ export default function LandingPage() {
         {/* Layer 3.5: Bottom Fade */}
         <div style={{ position: 'absolute', bottom: 0, width: '100%', height: '40%', background: 'linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 100%)', pointerEvents: 'none', zIndex: 16 }} />
 
-        {/* Layer 4L: Curtain Left */}
-        <img 
-          ref={curtainLRef}
-          src={CURTAIN_LEFT} 
-          className="landing-parallax-layer mobile-hidden"
-          style={{ 
-            position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'right center', transformOrigin: 'left center', zIndex: 16, pointerEvents: 'none',
-            transition: entranceDone ? 'none' : 'transform 1.8s cubic-bezier(0.16, 1, 0.3, 1)',
-            willChange: 'transform'
-          }}
-        />
 
-        {/* Layer 4R: Curtain Right */}
-        <img 
-          ref={curtainRRef}
-          src={CURTAIN_RIGHT} 
-          className="landing-parallax-layer mobile-hidden"
-          style={{ 
-            position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'left center', transformOrigin: 'right center', zIndex: 16, pointerEvents: 'none',
-            transition: entranceDone ? 'none' : 'transform 1.8s cubic-bezier(0.16, 1, 0.3, 1)',
-            willChange: 'transform'
-          }}
-        />
 
         {/* Top Fade Gradient */}
         <div style={{ position: 'absolute', top: 0, width: '100%', height: '42vh', background: 'linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 100%)', pointerEvents: 'none', zIndex: 45 }} />
@@ -546,12 +530,32 @@ export default function LandingPage() {
           position: 'absolute', inset: 0, zIndex: 46, pointerEvents: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           opacity: scene3Opacity, padding: '0 24px'
         }}>
-          <h2 style={{ 
-            fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 'clamp(32px, 8vw, 48px)' : 'clamp(42px, 6.5vw, 64px)', color: 'rgba(255, 255, 255, 1)', 
-            lineHeight: 1.2, textShadow: '0 2px 20px rgba(0,0,0,0.4)', textAlign: 'center'
-          }}>
-            Thank You for Visiting
-          </h2>
+          {isMobile ? (
+            <h2 style={{ 
+              fontFamily: "'Playfair Display', serif", fontSize: 'clamp(32px, 8vw, 48px)', color: 'rgba(255, 255, 255, 1)', 
+              lineHeight: 1.2, textShadow: '0 2px 20px rgba(0,0,0,0.4)', textAlign: 'center'
+            }}>
+              Thank You for Visiting
+            </h2>
+          ) : (
+            <>
+              <AntigravityText 
+                text="Ignite Your Faith, Elevate Your Mind"
+                as="h2"
+                style={{ 
+                  fontFamily: "'Playfair Display', serif", fontSize: 'clamp(42px, 6.5vw, 64px)', color: 'rgba(255, 255, 255, 1)', 
+                  lineHeight: 1.2, textShadow: '0 2px 20px rgba(0,0,0,0.4)', textAlign: 'center', margin: '0 0 16px', pointerEvents: 'auto'
+                }}
+              />
+              <p style={{ 
+                fontFamily: "'Inter', sans-serif", fontSize: '20px', lineHeight: 1.5, 
+                maxWidth: '640px', color: 'rgba(255, 255, 255, 0.85)', textAlign: 'center', margin: 0 
+              }}>
+                No matter where you are on your journey, I hope these truths offer the wisdom and comfort your spirit needs today. Trust the process, stand firm in hope.<br/><br/>
+                Stay inspired, Stay blessed!
+              </p>
+            </>
+          )}
         </div>
         
         </div> {/* End of Main Scene Container */}
@@ -586,20 +590,36 @@ export default function LandingPage() {
           className="mobile-hidden"
           ref={scene3AboutMeContainerRef}
           onScroll={(e) => setScene3AboutMeScroll(Math.min(e.currentTarget.scrollTop / window.innerHeight, 1))}
-          onWheel={(e) => handleWheelReturn(e, scene3AboutMeContainerRef)}
           style={{ 
             position: 'absolute', top: '100%', width: '100%', height: '100%', 
             background: '#0a0608',
-            overflowY: activeScene === 'aboutMe' ? 'auto' : 'hidden', overflowX: 'hidden'
+            overflowY: 'auto', overflowX: 'hidden'
           }}>
           
           {/* STICKY BACKGROUND & INTRO */}
           <div style={{ position: 'sticky', top: 0, height: '100vh', width: '100%', overflow: 'hidden', zIndex: 0 }}>
+            
+            {/* BACK BUTTON */}
+            <div 
+              className="absolute top-8 left-8 md:top-16 md:left-16 z-[100]"
+              style={{ 
+                opacity: (scene3UIVisible && activeScene === 'aboutMe' && scene3AboutMeScroll < 0.05) ? 1 : 0, 
+                transition: 'opacity 0.3s ease',
+                pointerEvents: (scene3UIVisible && activeScene === 'aboutMe' && scene3AboutMeScroll < 0.05) ? 'auto' : 'none' 
+              }}
+            >
+              <button onClick={handleBackToMain} className="inline-flex items-center gap-2 text-sm uppercase tracking-[0.15em] text-white/80 hover:text-white transition-colors group/link font-medium">
+                <svg className="group-hover/link:-translate-x-1 transition-transform duration-300" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                BACK
+              </button>
+            </div>
+
             <div ref={scene3AboutMeBgRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 0 }}>
               <img 
                 src={SCENE3_BG} 
                 style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
-                         transform: activeScene === 'aboutMe' ? 'scale(1.1) translateY(-5vh)' : 'scale(1) translateY(0)', transition: 'transform 4s cubic-bezier(0.16, 1, 0.3, 1)' }}
+                         transform: activeScene === 'aboutMe' ? `scale(${1.1 + scene3AboutMeScroll * 0.4}) translateY(${-5 + scene3AboutMeScroll * 5}vh)` : 'scale(1) translateY(0)', 
+                         transition: activeScene === 'aboutMe' ? 'none' : 'transform 1.2s cubic-bezier(0.16, 1, 0.3, 1)' }}
               />
             </div>
             <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,10,20,0.4)', zIndex: 5, pointerEvents: 'none' }} />
@@ -607,17 +627,17 @@ export default function LandingPage() {
             {/* Clouds (Moves down and fades out on scroll) */}
             <div ref={scene3AboutMeCloudsRef} style={{ 
               position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 30,
-              opacity: 1 - scene3AboutMeScroll * 1.5,
-              transform: `translateY(${scene3AboutMeScroll * 200}px)`,
+              opacity: 1 - scene3AboutMeScroll * 2,
+              transform: `scale(${1 + scene3AboutMeScroll * 0.6}) translateY(${scene3AboutMeScroll * 100}px)`,
               pointerEvents: 'none'
             }}>
               <img 
                 src={SCENE3_CLOUDS} 
                 style={{ 
-                  position: 'absolute', bottom: scene3CloudsAnim && activeScene === 'aboutMe' ? '-5%' : '35%', left: 0, width: '100%', height: '110%', 
+                  position: 'absolute', bottom: '-5%', left: 0, width: '100%', height: '110%', 
                   objectFit: 'cover', transformOrigin: '50% 100%',
-                  transition: scene3EntranceDone ? 'none' : 'bottom 1.8s cubic-bezier(0.16, 1, 0.3, 1)',
-                  opacity: activeScene === 'aboutMe' ? 1 : 0,
+                  transition: (activeScene === 'aboutMe' && scene3EntranceDone) ? 'none' : 'opacity 1.2s ease',
+                  opacity: 1,
                   filter: 'hue-rotate(-120deg) brightness(0.6) saturate(1.5)'
                 }}
               />
@@ -626,9 +646,9 @@ export default function LandingPage() {
             {/* HUGE TEXT + SCROLL CUE */}
             <div style={{ 
               position: 'absolute', inset: 0, zIndex: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none',
-              opacity: (scene3UIVisible && activeScene === 'aboutMe' ? 1 : 0) * (1 - scene3AboutMeScroll * 2),
-              transform: scene3UIVisible && activeScene === 'aboutMe' ? 'translateY(0)' : 'translateY(30px)',
-              transition: 'opacity 1s ease 0.3s, transform 1s cubic-bezier(0.16, 1, 0.3, 1) 0.3s'
+              opacity: (scene3UIVisible && activeScene === 'aboutMe' ? 1 : 0) * Math.max(0, 1 - scene3AboutMeScroll * 4),
+              transform: scene3UIVisible && activeScene === 'aboutMe' ? `translateY(${scene3AboutMeScroll * -200}px)` : 'translateY(30px)',
+              transition: (activeScene === 'aboutMe' && scene3AboutMeScroll > 0) ? 'none' : 'opacity 0.6s ease, transform 1.2s cubic-bezier(0.16, 1, 0.3, 1)'
             }}>
               <AntigravityText 
                 text="About Me"
