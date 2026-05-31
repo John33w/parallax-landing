@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useLayoutEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 
 
 import AntigravityText from '../components/AntigravityText';
@@ -8,8 +9,6 @@ import BlogMenu from './BlogMenu';
 
 // ASSETS
 const PORTAL_BG = "/portal_bg.png";
-const CURTAIN_LEFT = "/curtain_left.png";
-const CURTAIN_RIGHT = "/curtain_right.png";
 const WORLD_BG = "/world-bg.jpg";
 const BOTTOM_CLOUDS = "/bottom-clouds.png";
 const SCENE3_BG = "/about_bg.jpg";
@@ -165,9 +164,20 @@ const ArcCardSlider = ({ cards, rotationOffset, isMobile, onCardClick }: { cards
 
 export default function LandingPage() {
   const isMobile = useIsMobile();
+  const location = useLocation();
   const [activeScene, setActiveScene] = useState<'main' | 'aboutMe' | 'blogs'>(
-    window.location.search.includes('scene=blogs') ? 'blogs' : 'main'
+    location.search.includes('scene=blogs') ? 'blogs' : 'main'
   );
+
+  useEffect(() => {
+    if (location.search.includes('scene=blogs')) {
+      setActiveScene('blogs');
+    } else if (location.search.includes('scene=about')) {
+      setActiveScene('aboutMe');
+    } else {
+      setActiveScene('main');
+    }
+  }, [location.search]);
 
   const lastScrollY = useRef(0);
   const activeSceneRef = useRef(activeScene);
@@ -213,7 +223,6 @@ export default function LandingPage() {
     // Swipe gestures have been removed for mobile per user request.
   }, [isMobile, activeScene]);
 
-  const [scene3CloudsAnim, setScene3CloudsAnim] = useState(false);
   const [scene3UIVisible, setScene3UIVisible] = useState(false);
   const [scene3EntranceDone, setScene3EntranceDone] = useState(false);
   const [_scene3BlogsScroll, setScene3BlogsScroll] = useState(0);
@@ -234,38 +243,18 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (activeScene !== 'main') {
-      const t1 = setTimeout(() => setScene3CloudsAnim(true), 100);
       const t2 = setTimeout(() => setScene3UIVisible(true), 600);
       const t3 = setTimeout(() => setScene3EntranceDone(true), 2200);
       return () => {
-        clearTimeout(t1);
         clearTimeout(t2);
         clearTimeout(t3);
       };
     } else {
-      setScene3CloudsAnim(false);
       setScene3UIVisible(false);
       setScene3EntranceDone(false);
     }
   }, [activeScene]);
 
-  const [entranceDone, setEntranceDone] = useState(false);
-  const overscrollRef = useRef(0);
-  const handleWheelReturn = (e: React.WheelEvent<HTMLDivElement>, ref: React.RefObject<HTMLDivElement>) => {
-    if (ref.current && ref.current.scrollTop <= 0) {
-      if (e.deltaY < 0) {
-        overscrollRef.current += Math.abs(e.deltaY);
-        if (overscrollRef.current > 80) {
-          handleBackToMain();
-          overscrollRef.current = 0;
-        }
-      } else {
-        overscrollRef.current = 0;
-      }
-    } else {
-      overscrollRef.current = 0;
-    }
-  };
 
   const handleBackToMain = () => {
     isRestoringScrollRef.current = true;
@@ -320,9 +309,8 @@ export default function LandingPage() {
     // Entrance animations
     const t1 = setTimeout(() => { setCurtainsOpen(true); curtainsOpenRef.current = true; }, 100);
     const t2 = setTimeout(() => setUiVisible(true), 600);
-    const t3 = setTimeout(() => setEntranceDone(true), 2200);
 
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
 
   useEffect(() => {
