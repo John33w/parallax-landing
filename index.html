@@ -8,6 +8,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
     <title>Step Into Wonder</title>
+    <script>
+      if (window.location.hostname.endsWith('.vercel.app') && window.location.hostname !== 'rinawrites.vercel.app') {
+        window.location.replace('https://rinawrites.vercel.app' + window.location.pathname + window.location.search + window.location.hash);
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
