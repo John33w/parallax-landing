@@ -21,12 +21,18 @@ export default function BlogPost() {
 
   const handleBack = (e: React.MouseEvent) => {
     e.preventDefault();
+    const doBack = () => {
+      if (window.history.state && window.history.state.idx > 0) {
+        navigate(-1);
+      } else {
+        navigate('/?scene=blogs', { replace: true });
+      }
+    };
+
     if ('startViewTransition' in document) {
-      (document as any).startViewTransition(() => {
-        navigate('/?scene=blogs');
-      });
+      (document as any).startViewTransition(doBack);
     } else {
-      navigate('/?scene=blogs');
+      doBack();
     }
   };
 

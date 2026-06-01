@@ -1,0 +1,52 @@
+--- src/pages/LandingPage.tsx
++++ src/pages/LandingPage.tsx
+@@ -69,14 +69,14 @@
+ }
+ 
+ const ArcCardSlider = forwardRef<ArcCardSliderHandle, { cards: any[], isMobile: boolean, onCardClick?: (title: string) => void }>(({ cards, isMobile, onCardClick }, ref) => {
+-  const [rotationOffset, setRotationOffset] = useState(0);
+-
+-  useImperativeHandle(ref, () => ({
+-    setRotationOffset: (offset: number) => {
+-      setRotationOffset(offset);
+-    }
+-  }));
+-
+   const cardSpacingDeg = isMobile ? 12 : 9;
+   const centerIndex = Math.floor(cards.length / 2);
+   const arcRadius = isMobile ? 700 : 1100;
+   const cardW = isMobile ? 140 : 220;
+   const cardH = isMobile ? 200 : 320;
+ 
++  const cardsRef = useRef<(HTMLDivElement | null)[]>([]);
++
++  useImperativeHandle(ref, () => ({
++    setRotationOffset: (offset: number) => {
++      cardsRef.current.forEach((el, i) => {
++        if (!el) return;
++        const baseDeg = (i - centerIndex) * cardSpacingDeg;
++        const deg = baseDeg - offset + (centerIndex * cardSpacingDeg);
++        el.style.transform = `rotate(${deg}deg)`;
++      });
++    }
++  }));
++
+   return (
+     <div style={{ position: 'relative', width: '100%', height: isMobile ? '300px' : '450px', overflow: 'hidden' }}>
+       {cards.map((card, i) => {
+         const baseDeg = (i - centerIndex) * cardSpacingDeg;
+-        const deg = baseDeg - rotationOffset + (centerIndex * cardSpacingDeg);
++        // Initial rotation is just baseDeg (offset is 0)
++        const deg = baseDeg + (centerIndex * cardSpacingDeg);
+         const rad = (deg * Math.PI) / 180;
+         
+         const x = Math.sin(rad) * arcRadius;
+         const y = arcRadius - Math.cos(rad) * arcRadius;
+         const bottomOffset = isMobile ? 60 : 80;
+         const bottomPos = -y + bottomOffset;
+ 
+         return (
+           <div
+             key={i}
++            ref={(el) => cardsRef.current[i] = el}
+             onClick={() => onCardClick?.(card.title)}

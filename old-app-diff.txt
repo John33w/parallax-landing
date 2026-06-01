@@ -1,0 +1,21 @@
+Created At: 2026-05-29T15:20:23Z
+Completed At: 2026-05-29T15:20:41Z
+The following changes were made by the replace_file_content tool to: /Users/christ/antigravity projects/parallax-landing/src/App.tsx. If relevant, proactively run terminal commands to execute this code for the USER. Don't ask for permission.
+[diff_block_start]
+@@ -479,6 +479,11 @@
+         <div 
+           ref={scene3BlogsContainerRef}
+           onScroll={(e) => setScene3BlogsScroll(Math.min(e.currentTarget.scrollTop / window.innerHeight, 1))}
++          onWheel={(e) => {
++            if (e.currentTarget.scrollTop <= 0 && e.deltaY < -5) {
++              setActiveScene('main');
++            }
++          }}
+           style={{ 
+             position: 'absolute', bottom: '100vh', width: '100%', height: '100vh', 
+             background: '#0a0608',
+[diff_block_end]
+
+Please note that the above snippet only shows the MODIFIED lines from the last change. It shows up to 3 lines of unchanged lines before and after the modified lines. The actual file contents may have many more lines not shown.
+
+We did our best to apply changes despite some inaccuracies. Double check if the edit applied is what you intended.

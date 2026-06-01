@@ -195,9 +195,13 @@ export default function LandingPage() {
         }, 10);
       } else {
         setActiveScene('main');
+        if (isMobile) {
+          setScrollProgress(0);
+          scrollProgressRef.current = 0;
+        }
       }
     }
-  }, [location.search]);
+  }, [location.search, isMobile]);
 
   const lastScrollY = useRef(-1);
   const activeSceneRef = useRef(activeScene);
@@ -406,7 +410,7 @@ export default function LandingPage() {
         <div style={{ position: 'absolute', inset: 0, zIndex: 45, pointerEvents: 'none' }}>
           <ParticleField />
         </div>
-        <div style={{ position: 'absolute', inset: 0, transform: activeScene === 'blogs' ? 'translateY(100%)' : activeScene === 'aboutMe' ? 'translateY(-100%)' : 'translateY(0)', transition: 'transform 1.2s cubic-bezier(0.76, 0, 0.24, 1)' }}>
+        <div style={{ position: 'absolute', inset: 0, willChange: 'transform', transform: activeScene === 'blogs' ? 'translate3d(0, 100%, 0)' : activeScene === 'aboutMe' ? 'translate3d(0, -100%, 0)' : 'translate3d(0, 0, 0)', transition: 'transform 1.0s cubic-bezier(0.645, 0.045, 0.355, 1)' }}>
         
           {/* SEAM BLENDERS: Minimalistic smooth fade between scenes */}
           <div style={{ position: 'absolute', top: '-2vh', left: 0, width: '100%', height: '4vh', background: 'linear-gradient(to bottom, transparent, #0a0608 45%, #0a0608 55%, transparent)', zIndex: 100, pointerEvents: 'none' }} />
@@ -472,7 +476,7 @@ export default function LandingPage() {
           <FluidCursor />
           
           <div style={{
-            opacity: uiVisible ? 1 : 0, transform: uiVisible ? 'translateY(0)' : 'translateY(30px)', transition: 'opacity 1s ease 0.3s, transform 1s cubic-bezier(0.16, 1, 0.3, 1) 0.3s',
+            opacity: uiVisible ? 1 : 0, transform: uiVisible ? 'translate3d(0, 0, 0)' : 'translate3d(0, 30px, 0)', transition: 'opacity 1s ease 0.3s, transform 1s cubic-bezier(0.16, 1, 0.3, 1) 0.3s',
             textAlign: 'center', padding: '0 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'auto'
           }}>
             <div 
@@ -577,10 +581,10 @@ export default function LandingPage() {
             overflowY: activeScene === 'blogs' ? 'auto' : 'hidden', overflowX: 'hidden'
           }}>
           <div style={{ flex: 1 }}>
-            {activeScene === 'blogs' && <BlogMenu isIntegrated={true} onBack={() => {
+            <BlogMenu isIntegrated={true} onBack={() => {
               setActiveScene('main');
               navigate('/');
-            }} />}
+            }} />
           </div>
         </div>
 
