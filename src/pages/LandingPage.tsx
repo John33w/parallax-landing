@@ -175,11 +175,24 @@ export default function LandingPage() {
     } else if (location.search.includes('scene=about')) {
       setActiveScene('aboutMe');
     } else {
-      setActiveScene('main');
+      if (activeSceneRef.current !== 'main') {
+        isRestoringScrollRef.current = true;
+        setActiveScene('main');
+        setTimeout(() => {
+          if (containerRef.current) {
+            const maxScroll = containerRef.current.scrollHeight - window.innerHeight;
+            const targetY = lastScrollY.current >= 0 ? lastScrollY.current : 0;
+            window.scrollTo({ top: targetY, behavior: 'instant' });
+            setTimeout(() => { isRestoringScrollRef.current = false; }, 1200);
+          }
+        }, 10);
+      } else {
+        setActiveScene('main');
+      }
     }
   }, [location.search]);
 
-  const lastScrollY = useRef(0);
+  const lastScrollY = useRef(-1);
   const activeSceneRef = useRef(activeScene);
   const isRestoringScrollRef = useRef(false);
 
@@ -262,7 +275,7 @@ export default function LandingPage() {
     setTimeout(() => {
       if (containerRef.current) {
         const maxScroll = containerRef.current.scrollHeight - window.innerHeight;
-        const targetY = lastScrollY.current > 0 ? lastScrollY.current : maxScroll * 0.60;
+        const targetY = lastScrollY.current >= 0 ? lastScrollY.current : 0;
         window.scrollTo({ top: targetY, behavior: 'instant' });
         setTimeout(() => { isRestoringScrollRef.current = false; }, 1200);
       }
