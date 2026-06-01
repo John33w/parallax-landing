@@ -180,7 +180,6 @@ export default function LandingPage() {
         setActiveScene('main');
         setTimeout(() => {
           if (containerRef.current) {
-            const maxScroll = containerRef.current.scrollHeight - window.innerHeight;
             const targetY = lastScrollY.current >= 0 ? lastScrollY.current : 0;
             window.scrollTo({ top: targetY, behavior: 'instant' });
             setTimeout(() => { isRestoringScrollRef.current = false; }, 1200);
@@ -274,7 +273,6 @@ export default function LandingPage() {
     setActiveScene('main');
     setTimeout(() => {
       if (containerRef.current) {
-        const maxScroll = containerRef.current.scrollHeight - window.innerHeight;
         const targetY = lastScrollY.current >= 0 ? lastScrollY.current : 0;
         window.scrollTo({ top: targetY, behavior: 'instant' });
         setTimeout(() => { isRestoringScrollRef.current = false; }, 1200);
