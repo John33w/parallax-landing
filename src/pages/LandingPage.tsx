@@ -182,6 +182,12 @@ export default function LandingPage() {
           if (containerRef.current) {
             const targetY = lastScrollY.current >= 0 ? lastScrollY.current : 0;
             window.scrollTo({ top: targetY, behavior: 'instant' });
+            
+            const maxScroll = containerRef.current.scrollHeight - window.innerHeight;
+            const progress = maxScroll > 0 ? Math.min(Math.max(targetY / maxScroll, 0), 1) : 0;
+            setScrollProgress(progress);
+            scrollProgressRef.current = progress;
+            
             setTimeout(() => { isRestoringScrollRef.current = false; }, 1200);
           }
         }, 10);
@@ -275,6 +281,12 @@ export default function LandingPage() {
       if (containerRef.current) {
         const targetY = lastScrollY.current >= 0 ? lastScrollY.current : 0;
         window.scrollTo({ top: targetY, behavior: 'instant' });
+        
+        const maxScroll = containerRef.current.scrollHeight - window.innerHeight;
+        const progress = maxScroll > 0 ? Math.min(Math.max(targetY / maxScroll, 0), 1) : 0;
+        setScrollProgress(progress);
+        scrollProgressRef.current = progress;
+        
         setTimeout(() => { isRestoringScrollRef.current = false; }, 1200);
       }
     }, 10);
