@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useLayoutEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 
 import AntigravityText from '../components/AntigravityText';
@@ -165,8 +165,10 @@ const ArcCardSlider = ({ cards, rotationOffset, isMobile, onCardClick }: { cards
 export default function LandingPage() {
   const isMobile = useIsMobile();
   const location = useLocation();
+  const navigate = useNavigate();
   const [activeScene, setActiveScene] = useState<'main' | 'aboutMe' | 'blogs'>(
-    location.search.includes('scene=blogs') ? 'blogs' : 'main'
+    location.search.includes('scene=blogs') ? 'blogs' : 
+    location.search.includes('scene=about') ? 'aboutMe' : 'main'
   );
 
   useEffect(() => {
@@ -275,21 +277,7 @@ export default function LandingPage() {
 
 
   const handleBackToMain = () => {
-    isRestoringScrollRef.current = true;
-    setActiveScene('main');
-    setTimeout(() => {
-      if (containerRef.current) {
-        const targetY = lastScrollY.current >= 0 ? lastScrollY.current : 0;
-        window.scrollTo({ top: targetY, behavior: 'instant' });
-        
-        const maxScroll = containerRef.current.scrollHeight - window.innerHeight;
-        const progress = maxScroll > 0 ? Math.min(Math.max(targetY / maxScroll, 0), 1) : 0;
-        setScrollProgress(progress);
-        scrollProgressRef.current = progress;
-        
-        setTimeout(() => { isRestoringScrollRef.current = false; }, 1200);
-      }
-    }, 10);
+    navigate('/');
   };
 
   // Refs for tracking values inside rAF without triggering re-renders
@@ -447,8 +435,13 @@ export default function LandingPage() {
         <div className="mobile-hidden" style={{ position: 'absolute', bottom: isMobile ? '60px' : '80px', left: 0, width: '100%', zIndex: 9, opacity: scene2Opacity }}>
           <ArcCardSlider cards={SCENE2_CARDS} rotationOffset={rotationOffset} isMobile={isMobile} onCardClick={(title) => {
             lastScrollY.current = window.scrollY;
-            if (title === 'Blogs') setActiveScene('blogs');
-            else if (title === 'About Me') setActiveScene('aboutMe');
+            if (title === 'Blogs') {
+              setActiveScene('blogs');
+              navigate('/?scene=blogs');
+            } else if (title === 'About Me') {
+              setActiveScene('aboutMe');
+              navigate('/?scene=about');
+            }
           }} />
         </div>
 
@@ -488,6 +481,7 @@ export default function LandingPage() {
                 if(isMobile) {
                   lastScrollY.current = window.scrollY;
                   setActiveScene('blogs'); 
+                  navigate('/?scene=blogs');
                 }
               }}
               style={{ position: 'relative', width: '100%', maxWidth: '800px', display: 'flex', justifyContent: 'center', margin: '0 auto 16px', cursor: isMobile ? 'pointer' : 'default' }}>
@@ -582,18 +576,12 @@ export default function LandingPage() {
             background: '#0a0608',
             overflowY: activeScene === 'blogs' ? 'auto' : 'hidden', overflowX: 'hidden'
           }}>
-          <BlogMenu isIntegrated={true} onBack={() => {
-            isRestoringScrollRef.current = true;
-            setActiveScene('main');
-            setTimeout(() => {
-              if (containerRef.current) {
-                const maxScroll = containerRef.current.scrollHeight - window.innerHeight;
-                const targetY = lastScrollY.current > 0 ? lastScrollY.current : maxScroll * 0.60;
-                window.scrollTo({ top: targetY, behavior: 'instant' });
-                setTimeout(() => { isRestoringScrollRef.current = false; }, 1200);
-              }
-            }, 10);
-          }} />
+          <div style={{ flex: 1 }}>
+            {activeScene === 'blogs' && <BlogMenu isIntegrated={true} onBack={() => {
+              setActiveScene('main');
+              navigate('/');
+            }} />}
+          </div>
         </div>
 
         {/* SCENE 3: ABOUT ME (Bottom Container) */}
@@ -722,16 +710,8 @@ export default function LandingPage() {
               
               <button 
                 onClick={() => {
-                  isRestoringScrollRef.current = true;
                   setActiveScene('main');
-                  setTimeout(() => {
-                    if (containerRef.current) {
-                      const maxScroll = containerRef.current.scrollHeight - window.innerHeight;
-                      const targetY = lastScrollY.current > 0 ? lastScrollY.current : maxScroll * 0.60;
-                      window.scrollTo({ top: targetY, behavior: 'instant' });
-                      setTimeout(() => { isRestoringScrollRef.current = false; }, 1200);
-                    }
-                  }, 10);
+                  navigate('/');
                 }}
                 style={{
                   padding: '12px 32px', borderRadius: '30px', border: '1px solid rgba(255,255,255,0.4)',
