@@ -5,6 +5,7 @@ import { db } from '../../lib/firebase';
 import { collection, doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { Save, Send, Eye, ArrowLeft } from 'lucide-react';
 
+
 const EditorStyles = React.memo(() => (
   <style>{`
     .tox-tinymce {
@@ -153,12 +154,21 @@ const Editor = () => {
     
     if (!isAutoSave) setSavingAction(status);
     
-    const plainText = new DOMParser().parseFromString(content, 'text/html').body.textContent || '';
+    let currentContent = content;
+    if (editorRef.current) {
+      currentContent = editorRef.current.getContent();
+      if (currentContent !== content) {
+        setContent(currentContent);
+        latestDataRef.current.content = currentContent;
+      }
+    }
+    
+    const plainText = new DOMParser().parseFromString(currentContent, 'text/html').body.textContent || '';
     const excerpt = plainText.length > 150 ? plainText.substring(0, 150) + '...' : plainText;
     
-    const postData = {
+    const postData: any = {
       title,
-      content,
+      content: currentContent,
       excerpt,
       status,
       publishDate,
@@ -167,6 +177,7 @@ const Editor = () => {
     };
 
     try {
+
       if (id) {
         // Fire and forget for instant UI response
         updateDoc(doc(db, 'posts', id), postData).catch(error => {
@@ -185,6 +196,7 @@ const Editor = () => {
       } else {
         // Generate ID instantly for new post
         const newDocRef = doc(collection(db, 'posts'));
+        latestDataRef.current.id = newDocRef.id;
         
         setDoc(newDocRef, {
           ...postData,

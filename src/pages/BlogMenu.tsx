@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { db } from '../lib/firebase';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { Link } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import AntigravityText from '../components/AntigravityText';
+import { motion, AnimatePresence } from 'framer-motion';
+import { SlidingTextLink, MagneticButton } from '../components/Navigation';
+import { searchBlogsWithGemini } from '../utils/geminiSearch';
 
 const safeFormatDate = (publishDate: any) => {
   try {
@@ -22,6 +24,65 @@ const safeFormatDate = (publishDate: any) => {
     console.error("Error formatting date:", e);
     return 'Unknown Date';
   }
+};
+
+const LoadingIndicator = () => {
+  const [stage, setStage] = useState<'working' | 'wait'>('working');
+  const [dots, setDots] = useState('');
+
+  useEffect(() => {
+    const flipTimer = setTimeout(() => {
+      setStage('wait');
+    }, 1000);
+    return () => clearTimeout(flipTimer);
+  }, []);
+
+  useEffect(() => {
+    if (stage === 'wait') {
+      let count = 0;
+      const dotsTimer = setInterval(() => {
+        count++;
+        if (count === 1) setDots('.');
+        else if (count === 2) setDots('..');
+        else if (count === 3) setDots('...');
+        else if (count === 4) { count = 0; setDots(''); }
+      }, 400);
+      return () => clearInterval(dotsTimer);
+    }
+  }, [stage]);
+
+  return (
+    <div className="relative h-24 w-full flex items-center justify-center py-12 overflow-hidden">
+      <AnimatePresence mode="popLayout">
+        {stage === 'working' ? (
+          <motion.div
+            key="working"
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -20, opacity: 0 }}
+            transition={{ duration: 0.4, ease: "easeInOut" }}
+            className="absolute text-white/50 text-xl font-inter flex justify-center w-full"
+          >
+            Working
+          </motion.div>
+        ) : (
+          <motion.div
+            key="wait"
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -20, opacity: 0 }}
+            transition={{ duration: 0.4, ease: "easeInOut" }}
+            className="absolute text-white/50 text-xl font-inter flex justify-center w-full"
+          >
+            <div className="flex items-center justify-center whitespace-nowrap">
+              <span>Please wait</span>
+              <span className="w-6 text-left inline-block">{dots}</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 };
 
 interface BlogPost {
@@ -43,9 +104,59 @@ interface BlogMenuProps {
 export default function BlogMenu({ isIntegrated, onBack }: BlogMenuProps) {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [filteredPosts, setFilteredPosts] = useState<BlogPost[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [searchMessage, setSearchMessage] = useState('');
+  const [searchVerseRef, setSearchVerseRef] = useState('');
+  const [searchVerseText, setSearchVerseText] = useState('');
+  const [defaultPage, setDefaultPage] = useState(0);
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const scrollCooldown = useRef(false);
+
+  const placeholders = [
+    "Search whatever's on your mind",
+    "I want to know more about God's love..",
+    "I want to break free from addictions.."
+  ];
+
+  useEffect(() => {
+    if (!isSearchOpen) return;
+    const interval = setInterval(() => {
+      setPlaceholderIndex(prev => (prev + 1) % placeholders.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [isSearchOpen]);
+
+  useEffect(() => {
+    setDefaultPage(0);
+  }, [search]);
+
+  const handleModalWheel = (e: React.WheelEvent) => {
+    if (search.trim() !== '' || posts.length <= 3 || scrollCooldown.current) return;
+    
+    if (Math.abs(e.deltaY) > 20) {
+      const maxPage = Math.ceil(posts.length / 3) - 1;
+      let newPage = defaultPage;
+      
+      if (e.deltaY > 0 && defaultPage < maxPage) {
+        newPage = defaultPage + 1;
+      } else if (e.deltaY < 0 && defaultPage > 0) {
+        newPage = defaultPage - 1;
+      }
+
+      if (newPage !== defaultPage) {
+        scrollCooldown.current = true;
+        setDefaultPage(newPage);
+        setTimeout(() => {
+          scrollCooldown.current = false;
+        }, 800);
+      }
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -122,163 +233,389 @@ export default function BlogMenu({ isIntegrated, onBack }: BlogMenuProps) {
     };
   }, []);
 
-  const filteredPosts = posts.filter(post => {
-    if (!search.trim()) return true;
-    
-    // Split search query by spaces into individual terms
-    const terms = search.toLowerCase().trim().split(/\s+/);
-    
-    // Every term must match at the beginning of some word in the title
-    return terms.every(term => {
-      const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`\\b${escapedTerm}`, 'i');
-      return post.title && regex.test(post.title);
-    });
-  });
+  useEffect(() => {
+    if (isSearchOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isSearchOpen]);
+
+  useEffect(() => {
+    let isActive = true;
+    const performSearch = async () => {
+      if (!search.trim()) {
+        setFilteredPosts(posts.slice(defaultPage * 3, (defaultPage + 1) * 3));
+        setIsSearching(false);
+        return;
+      }
+      setIsSearching(true);
+      setSearchMessage('');
+      setSearchVerseRef('');
+      setSearchVerseText('');
+      try {
+        const apiPromise = searchBlogsWithGemini(search, posts);
+        const minWaitPromise = new Promise(resolve => setTimeout(resolve, 2700));
+        const [result] = await Promise.all([apiPromise, minWaitPromise]);
+        const { matchedIds, message, verseRef, verseText } = result;
+        if (!isActive) return;
+        const sortedPosts = matchedIds
+          .map(id => posts.find(p => p.id === id))
+          .filter(Boolean) as BlogPost[];
+        setFilteredPosts(sortedPosts);
+        setSearchMessage(message || '');
+        setSearchVerseRef(verseRef || '');
+        setSearchVerseText(verseText || '');
+      } catch (err) {
+        console.error("Search failed:", err);
+        if (!isActive) return;
+        setFilteredPosts([]);
+      } finally {
+        if (isActive) setIsSearching(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(() => {
+      performSearch();
+    }, 500);
+
+    return () => {
+      isActive = false;
+      clearTimeout(debounceTimer);
+    };
+  }, [search, posts, defaultPage]);
 
   return (
-    <div className={`${isIntegrated ? 'min-h-full w-full' : 'min-h-screen'} bg-[#0a0608] text-white pt-16 md:pt-8 px-6 md:px-12 lg:px-24 pb-12 relative`}>
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-[#50283c]/20 blur-[140px] rounded-full" />
-         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#251a22]/40 blur-[120px] rounded-full" />
+    <div className={`min-h-screen bg-[#E8E8E5] flex flex-col font-cabinetGrotesk`}>
+      {/* Navigation */}
+      <div className="w-full flex items-center z-[60] py-6 md:py-8 relative">
+        <div className="w-full max-w-screen-2xl mx-auto px-[1rem] lg:px-[2rem]">
+          {/* Logo/Home link */}
+          {isIntegrated ? (
+            <button onClick={onBack} className="text-3xl md:text-4xl font-bold text-[#111111] font-playfair tracking-wide">
+              RinaWrites
+            </button>
+          ) : (
+            <Link to="/" state={{ transitionText: 'Hello' }} className="text-3xl md:text-4xl font-bold text-[#111111] font-playfair tracking-wide">
+              RinaWrites
+            </Link>
+          )}
+        </div>
+
+        <div className="absolute right-6 md:right-16 flex items-center gap-8">
+          {/* Desktop Nav */}
+          <nav className="hidden md:flex items-center gap-8 text-[#111111] font-light text-xl">
+            {isIntegrated ? (
+              <div className="hover:opacity-70 transition-opacity duration-300">
+                <SlidingTextLink onClick={onBack}>
+                  Home
+                </SlidingTextLink>
+              </div>
+            ) : (
+              <div className="hover:opacity-70 transition-opacity duration-300">
+                <SlidingTextLink to="/">
+                  Home
+                </SlidingTextLink>
+              </div>
+            )}
+            <div className="hover:opacity-70 transition-opacity duration-300">
+              <SlidingTextLink to="/about">
+                About
+              </SlidingTextLink>
+            </div>
+            
+            <MagneticButton onClick={() => setIsSearchOpen(true)}>
+              Search
+            </MagneticButton>
+          </nav>
+
+          {/* Mobile menu toggle */}
+          <div className="block md:hidden">
+            <div 
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="w-12 h-12 bg-sec rounded-full flex items-center justify-center shadow-lg cursor-pointer"
+            >
+              <div className="flex flex-col gap-1.5">
+                <div className="w-5 h-0.5 bg-white rounded-full"></div>
+                <div className="w-5 h-0.5 bg-white rounded-full"></div>
+                <div className="w-5 h-0.5 bg-white rounded-full"></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="relative z-10 max-w-6xl mx-auto">
-        {isSearchOpen && createPortal(
-          <div className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-md flex flex-col items-center pt-24 px-6 animate-in fade-in duration-300">
-            <button 
-              onClick={() => setIsSearchOpen(false)} 
-              className="absolute top-8 right-8 text-white/50 hover:text-white transition-colors p-2"
-            >
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      {/* Mobile Menu Portal */}
+      {isMobileMenuOpen && createPortal(
+        <div className="fixed inset-0 z-[100] bg-sec text-white flex flex-col p-6 animate-in slide-in-from-right duration-500">
+          <div className="flex justify-between items-center w-full mb-12">
+            <span className="text-3xl md:text-4xl font-bold font-playfair tracking-wide">RinaWrites</span>
+            <button onClick={() => setIsMobileMenuOpen(false)} className="w-12 h-12 flex flex-col justify-center items-center gap-1.5">
+              <div className="w-6 h-0.5 bg-white rotate-45 translate-y-1"></div>
+              <div className="w-6 h-0.5 bg-white -rotate-45 -translate-y-1"></div>
             </button>
-            
-            <div className="w-full max-w-3xl relative mb-12">
-              <svg className="absolute left-6 top-1/2 -translate-y-1/2 text-white/40" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-              <input
-                type="text"
-                placeholder="Search blogs..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-transparent border-b-2 border-white/20 py-4 pl-16 pr-6 text-2xl md:text-4xl text-white placeholder-white/20 focus:outline-none focus:border-white/60 transition-colors"
-                autoFocus
-                style={{ fontFamily: "'Playfair Display', serif" }}
-              />
-            </div>
-            
-            <div className="w-full max-w-3xl overflow-y-auto max-h-[60vh] flex flex-col">
-              {filteredPosts.map(post => (
-                <Link 
-                  key={post.id} 
-                  to={`/blog/${post.permalink}`}
-                  state={{ post }}
-                  onClick={() => setIsSearchOpen(false)}
-                  className="group flex flex-col py-6 border-b border-white/10 hover:border-white/30 transition-colors"
-                >
-                  <h3 className="text-2xl md:text-3xl text-white/80 group-hover:text-white mb-2 transition-colors" style={{ fontFamily: "'Playfair Display', serif" }}>
-                    {post.title}
-                  </h3>
-                  <span className="text-xs uppercase tracking-[0.2em] text-[#dcedc2]" style={{ fontFamily: "'Inter', sans-serif" }}>
-                    {safeFormatDate(post.publishDate)}
-                  </span>
-                </Link>
-              ))}
-              {filteredPosts.length === 0 && (
-                <div className="text-white/50 text-center py-12 text-xl" style={{ fontFamily: "'Inter', sans-serif" }}>
-                  No blogs found matching your search.
-                </div>
-              )}
-            </div>
-          </div>,
-          document.body
-        )}
-
-        <header className="mb-8 md:mb-16 relative">
-          <div className="flex justify-between items-start absolute w-full top-0">
+          </div>
+          <nav className="flex flex-col gap-6 text-4xl font-cabinetGrotesk">
             {isIntegrated ? (
-              <button onClick={onBack} className="inline-flex items-center gap-2 text-sm uppercase tracking-[0.15em] text-white/80 hover:text-white transition-colors group/link font-medium">
-                <svg className="group-hover/link:-translate-x-1 transition-transform duration-300" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-                BACK
-              </button>
+              <button onClick={() => { setIsMobileMenuOpen(false); onBack?.(); }} className="text-left border-b border-white/20 pb-4">Home</button>
             ) : (
-              <Link to="/?scene=2" className="inline-flex items-center gap-2 text-sm uppercase tracking-[0.15em] text-white/80 hover:text-white transition-colors group/link font-medium">
-                <svg className="group-hover/link:-translate-x-1 transition-transform duration-300" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-                BACK
-              </Link>
+              <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="border-b border-white/20 pb-4">Home</Link>
             )}
-            
-            <button 
-              onClick={() => setIsSearchOpen(true)}
-              className="text-white/80 hover:text-white transition-colors p-2 rounded-full hover:bg-white/5 cursor-pointer"
+            <Link to="/about" onClick={() => setIsMobileMenuOpen(false)} className="border-b border-white/20 pb-4">About</Link>
+            <button onClick={() => { setIsMobileMenuOpen(false); setIsSearchOpen(true); }} className="border-b border-white/20 pb-4 text-left text-thr">Search Blogs</button>
+          </nav>
+        </div>,
+        document.body
+      )}
+
+      {/* Search Modal Portal */}
+      {createPortal(
+        <AnimatePresence>
+          {isSearchOpen && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.8, ease: "easeInOut" }}
+              className={`fixed inset-0 z-[9999] bg-sec/95 backdrop-blur-md flex flex-col items-center pt-24 px-6 ${search.trim() === '' ? 'overflow-hidden' : 'overflow-y-auto'}`}
+              data-lenis-prevent
+              onWheel={handleModalWheel}
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-            </button>
-          </div>
+              <button 
+                onClick={() => {
+                  setIsSearchOpen(false);
+                  setSearch('');
+                  setSearchMessage('');
+                  setSearchVerseRef('');
+                  setSearchVerseText('');
+                  setDefaultPage(0);
+                }} 
+                className="absolute top-8 right-8 text-white/50 hover:text-white transition-colors p-2"
+              >
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              </button>
+              
+              <div className="w-full max-w-3xl relative mb-12">
+                <svg className="absolute left-6 top-1/2 -translate-y-1/2 text-white/40 z-10" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                
+                {!search && (
+                  <div className="absolute left-14 top-0 bottom-0 right-5 pointer-events-none flex items-center overflow-hidden">
+                    <AnimatePresence mode="popLayout">
+                      <motion.div
+                        key={placeholderIndex}
+                        initial={{ y: 20, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: -20, opacity: 0 }}
+                        transition={{ duration: 0.4, ease: "easeInOut" }}
+                        className="text-xl md:text-3xl text-white/40 font-cabinetGrotesk truncate w-full absolute"
+                      >
+                        {placeholders[placeholderIndex]}
+                      </motion.div>
+                    </AnimatePresence>
+                  </div>
+                )}
 
-          <div className="text-center flex flex-col items-center pt-12 md:pt-4 px-4 md:px-0">
-            <AntigravityText 
-              text="Blogs"
-              as="h1"
-              className="text-4xl md:text-7xl mb-4 md:mb-6 text-white drop-shadow-lg font-bold"
-              style={{ fontFamily: "'Playfair Display', serif" }}
-            />
-            {/* Desktop caption */}
-            <p className="hidden md:block text-lg text-white/80 max-w-2xl text-center" style={{ fontFamily: "'Inter', sans-serif" }}>
-              A gateway to another mindset. Step right in and explore thoughts, reflections, and stories from the journey.
-            </p>
-            {/* Mobile caption */}
-            <p className="block md:hidden text-sm text-white/80 max-w-md text-center leading-relaxed" style={{ fontFamily: "'Inter', sans-serif" }}>
-              Here, you’ll find powerful quotes and heartfelt sermons that bring wisdom, faith, and encouragement to your daily life.
-            </p>
-          </div>
-        </header>
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full bg-transparent border-b-2 border-white/20 py-3 pl-14 pr-5 text-xl md:text-3xl text-white focus:outline-none focus:border-thr transition-colors font-cabinetGrotesk relative z-10"
+                  autoFocus
+                />
+              </div>
+              
+              <div className="w-full max-w-3xl flex flex-col gap-4 pb-24">
+                {!isSearching && search.trim() === '' && (
+                  <div className="text-thr text-center pb-8 pt-4 text-2xl md:text-3xl font-cabinetGrotesk font-light opacity-80 tracking-wide">
+                    Thank God For His Unconditional Love
+                  </div>
+                )}
+                {isSearching && (
+                  <LoadingIndicator />
+                )}
+                {!isSearching && (searchMessage || searchVerseText) && (
+                  <div className="text-white mb-6 text-lg md:text-xl font-cabinetGrotesk leading-relaxed flex flex-col gap-4 py-2">
+                    {searchMessage && (
+                      <div className="flex flex-wrap">
+                        {searchMessage.split(' ').map((word, index) => (
+                          <motion.span 
+                            key={`msg-${index}`}
+                            initial={{ opacity: 0, filter: 'blur(4px)' }}
+                            animate={{ opacity: 1, filter: 'blur(0px)' }}
+                            transition={{ duration: 0.3, delay: index * 0.03 }}
+                            className="inline-block mr-[0.3em]" 
+                          >
+                            {word}
+                          </motion.span>
+                        ))}
+                      </div>
+                    )}
+                    {searchVerseText && searchVerseRef && (
+                      <motion.a
+                        href={`https://www.biblegateway.com/passage/?search=${encodeURIComponent(searchVerseRef)}&version=NIV`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-bold text-thr hover:text-white transition-colors"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.5, delay: (searchMessage ? searchMessage.split(' ').length * 0.03 : 0) + 0.2 }}
+                      >
+                        {searchVerseRef} - "{searchVerseText}"
+                      </motion.a>
+                    )}
+                  </div>
+                )}
+                {!isSearching && filteredPosts.length > 0 && (
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={defaultPage}
+                      initial={{ opacity: 0, y: 20, filter: 'blur(8px)' }}
+                      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                      exit={{ opacity: 0, y: -20, filter: 'blur(8px)' }}
+                      transition={{ duration: 0.5, ease: "easeInOut" }}
+                      className="flex flex-col w-full"
+                    >
+                      {filteredPosts.map((post) => (
+                        <Link 
+                          key={post.id} 
+                          to={`/blog/${post.permalink}`}
+                          state={{ post }}
+                          onClick={() => {
+                            setIsSearchOpen(false);
+                            setSearch('');
+                            setSearchMessage('');
+                            setSearchVerseRef('');
+                            setSearchVerseText('');
+                            setDefaultPage(0);
+                          }}
+                          className="group flex flex-col py-4 border-b border-white/10 hover:border-thr transition-colors"
+                        >
+                          <span className="text-xs md:text-sm font-inter text-thr uppercase tracking-wider mb-1">
+                            {safeFormatDate(post.publishDate)}
+                          </span>
+                          <h3 className="text-xl md:text-2xl font-cabinetGrotesk font-bold text-white/80 group-hover:text-white leading-tight">
+                            {post.title.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')}
+                          </h3>
+                        </Link>
+                      ))}
+                    </motion.div>
+                  </AnimatePresence>
+                )}
+                {!isSearching && filteredPosts.length === 0 && search.trim() !== '' && !searchMessage && (
+                  <div className="text-white/50 text-center py-12 text-xl font-inter">
+                    No conceptual matches found for your search.
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
+      {/* Main Content */}
+      <div className="pt-12 pb-7 px-[1rem] lg:px-[2rem] max-w-screen-2xl mx-auto w-full flex flex-col text-left">
+        <div className="works-title text-5xl md:text-6xl lg:text-8xl font-cabinetGrotesk leading-tight text-black mb-6 flex flex-wrap py-2">
+          {["My", "Blogs"].map((word, index) => (
+            <span key={index} className="inline-block mr-[0.3em] overflow-hidden relative">
+              <motion.span 
+                initial={{ y: "100%" }}
+                animate={{ y: "0%" }}
+                transition={{ duration: 0.8, ease: [0.76, 0, 0.24, 1], delay: 0.7 + index * 0.1 }}
+                className="inline-block" 
+              >
+                {word}
+              </motion.span>
+            </span>
+          ))}
+        </div>
+        <div className="text-lg md:text-xl leading-relaxed max-w-3xl font-cabinetGrotesk text-black">
+          <div className="flex flex-wrap py-1">
+            {"This is the place where words inspire, uplift, and transform. Here, you’ll find powerful quotes and heartfelt sermons that bring wisdom, faith, and encouragement to your daily life. Whether you seek guidance, motivation, or spiritual reflection, let these words be a beacon of light on your journey. Stay inspired, stay blessed!".split(" ").map((word, index) => (
+              <span key={index} className="inline-block mr-[0.3em] overflow-hidden relative mb-1">
+                <motion.span 
+                  initial={{ y: "100%" }}
+                  animate={{ y: "0%" }}
+                  transition={{ duration: 0.8, ease: [0.76, 0, 0.24, 1], delay: 0.9 + index * 0.03 }}
+                  className="inline-block" 
+                >
+                  {word}
+                </motion.span>
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="pt-10 w-full pb-[10rem] px-[1rem] lg:px-[2rem] max-w-screen-2xl mx-auto flex-grow">
         {loading ? (
           <div className="flex justify-center items-center py-32">
-            <div className="w-10 h-10 rounded-full border-2 border-white/10 border-t-white animate-spin"></div>
+            <div className="w-10 h-10 rounded-full border-2 border-black/10 border-t-black animate-spin"></div>
           </div>
         ) : errorMsg ? (
-          <div className="text-center py-32 bg-red-500/10 border border-red-500/30 rounded-3xl backdrop-blur-sm">
-            <p className="text-red-200 text-xl font-sans" style={{ fontFamily: "'Inter', sans-serif" }}>Error: {errorMsg}</p>
+          <div className="text-center py-32">
+            <p className="text-red-500 text-xl font-inter">Error: {errorMsg}</p>
           </div>
-        ) : filteredPosts.length === 0 ? (
-          <div className="text-center py-32 bg-white/[0.02] border border-white/5 rounded-3xl backdrop-blur-sm">
-            <p className="text-white/50 text-xl font-sans" style={{ fontFamily: "'Inter', sans-serif" }}>No posts found.</p>
+        ) : posts.length === 0 ? (
+          <div className="text-center py-32">
+            <p className="text-black/50 text-xl font-inter">No posts found.</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-8 max-w-3xl mx-auto">
-            {filteredPosts.map(post => {
-              const formattedDate = safeFormatDate(post.publishDate);
-              
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 1.5, ease: [0.76, 0, 0.24, 1] }}
+            className="w-full flex flex-col border-t border-black/20" 
+          >
+            {posts.map((post) => {
               return (
-                <div key={post.id} className="group relative flex flex-col bg-[#140b10]/60 backdrop-blur-md border border-white/10 rounded-3xl overflow-hidden hover:border-white/30 transition-all duration-500 hover:-translate-y-2 shadow-[0_8px_30px_rgba(0,0,0,0.2)] hover:shadow-[0_20px_40px_rgba(80,40,60,0.3)]">
-                  <div className="p-5 md:p-8 flex flex-col h-full">
-                    <h2 className="text-2xl md:text-3xl text-white mb-2 leading-snug group-hover:text-[#f3cdd6] transition-colors" style={{ fontFamily: "'Playfair Display', serif" }}>
-                      {post.title}
-                    </h2>
-                    <div className="text-xs uppercase tracking-[0.2em] text-[#dcedc2] mb-6 font-medium" style={{ fontFamily: "'Inter', sans-serif" }}>
-                      - {formattedDate}
+                <div key={post.id} className="w-full">
+                  <Link 
+                    to={`/blog/${post.permalink}`} 
+                    state={{ post }}
+                    className="group relative block py-6 md:py-8 border-b border-black/20 overflow-hidden w-full"
+                  >
+                    {/* Background expansion from center vertically */}
+                    <div className="absolute inset-0 bg-main transform scale-y-0 opacity-0 group-hover:scale-y-100 group-hover:opacity-100 origin-center transition-all duration-500 ease-[cubic-bezier(0.76,0,0.24,1)] z-0"></div>
+                    
+                    <div className="relative z-10 flex justify-center w-full">
+                      <h2 className="group/title inline-flex flex-wrap justify-center text-center text-xl md:text-2xl lg:text-3xl font-bold uppercase text-black font-cabinetGrotesk tracking-wide">
+                        {(() => {
+                          let charIndex = 0;
+                          return post.title.split(' ').map((word: string, wIdx: number) => (
+                            <div key={wIdx} className="inline-flex flex-wrap justify-center mr-[0.3em] last:mr-0">
+                              {word.split('').map((char: string, cIdx: number) => {
+                                const i = charIndex++;
+                                return (
+                                  <span key={cIdx} className="relative inline-flex flex-col overflow-hidden align-top">
+                                    <span 
+                                      className="inline-block transition-transform duration-0 group-hover/title:duration-[800ms] ease-[cubic-bezier(0.76,0,0.24,1)] group-hover/title:-translate-y-full [transition-delay:0s] group-hover/title:[transition-delay:var(--hover-delay)]"
+                                      style={{ '--hover-delay': `${i * 0.02}s` } as React.CSSProperties}
+                                    >
+                                      {char}
+                                    </span>
+                                    <span 
+                                      className="absolute top-full left-0 inline-block transition-transform duration-0 group-hover/title:duration-[800ms] ease-[cubic-bezier(0.76,0,0.24,1)] group-hover/title:-translate-y-full [transition-delay:0s] group-hover/title:[transition-delay:var(--hover-delay)]"
+                                      style={{ '--hover-delay': `${i * 0.02}s` } as React.CSSProperties}
+                                    >
+                                      {char}
+                                    </span>
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          ));
+                        })()}
+                      </h2>
                     </div>
-                    <div 
-                      className="text-white/70 leading-relaxed mb-8 flex-grow text-sm md:text-base prose prose-invert max-w-none prose-p:my-0 prose-headings:my-0 prose-ul:my-0 prose-li:my-0" 
-                      style={{ fontFamily: "'Inter', sans-serif", display: "-webkit-box", WebkitLineClamp: 10, WebkitBoxOrient: "vertical", overflow: "hidden" }}
-                      dangerouslySetInnerHTML={{ __html: post.content || post.excerpt }}
-                    />
-                    <div className="mt-auto">
-                      <Link 
-                        to={`/blog/${post.permalink}`} 
-                        state={{ post }}
-                        className="inline-flex items-center gap-2 text-sm uppercase tracking-[0.15em] text-[#f3cdd6] hover:text-white transition-colors group/link font-medium" 
-                        style={{ fontFamily: "'Inter', sans-serif" }}
-                      >
-                        READ MORE
-                      </Link>
-                    </div>
-                  </div>
+                  </Link>
                 </div>
               );
             })}
-          </div>
+          </motion.div>
         )}
       </div>
     </div>

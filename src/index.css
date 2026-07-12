@@ -70,7 +70,9 @@
   }
 
   .landing-container {
+    height: 100vh !important;
     height: 100dvh !important;
+    max-height: 100vh !important;
     max-height: 100dvh !important;
     overflow: hidden !important;
     position: relative !important;
@@ -121,4 +123,15 @@
 /* Ensure inline text colors from the editor properly cascade to nested elements (like strong, em, or a) */
 .prose [style*="color:"] *:not([style*="color:"]) {
   color: inherit !important;
+}
+
+/* Force Cabinet Grotesk for all headings and their children in blog posts */
+.prose h1, .prose h1 *,
+.prose h2, .prose h2 *,
+.prose h3, .prose h3 *,
+.prose h4, .prose h4 *,
+.prose h5, .prose h5 *,
+.prose h6, .prose h6 *,
+.prose strong, .prose strong * {
+  font-family: 'Cabinet Grotesk', sans-serif !important;
 }

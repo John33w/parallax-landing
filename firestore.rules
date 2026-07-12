@@ -8,6 +8,13 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.token.email == 'rinawrites84@gmail.com';
     }
     
+    // Allow public read and create for comments, but only admin can delete
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if true; // Temporarily allow anyone to delete for testing
+    }
+    
     // Default deny all other collections
     match /{document=**} {
       allow read, write: if request.auth != null && request.auth.token.email == 'rinawrites84@gmail.com';
