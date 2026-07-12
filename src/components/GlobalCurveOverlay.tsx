@@ -127,7 +127,7 @@ export default function GlobalCurveOverlay() {
         <>
           {/* Animated Background Overlay */}
           <motion.div 
-            className="fixed top-0 left-0 w-[100vw] bg-[#0d0709] z-[9998] pointer-events-none will-change-transform"
+            className="fixed top-0 left-0 w-full bg-[#0d0709] z-[9998] pointer-events-none will-change-transform"
             style={{ height: height }}
             variants={containerVariants}
             initial="initial"
@@ -146,7 +146,7 @@ export default function GlobalCurveOverlay() {
                 style={{ height: height }}
                 variants={textVariants}
               >
-                <h2 className="text-white text-3xl md:text-4xl lg:text-5xl font-inter font-normal text-center m-0 p-0 tracking-wide opacity-90 whitespace-normal break-words max-w-full">
+                <h2 className="text-white text-3xl md:text-4xl lg:text-5xl font-inter font-normal text-center m-0 p-0 tracking-wide opacity-90 whitespace-normal break-words w-full">
                   {targetRoute}
                 </h2>
               </motion.div>
@@ -161,7 +161,7 @@ export default function GlobalCurveOverlay() {
           {/* Android Text Container (Completely decoupled from the moving background) */}
           {isAndroid && (
             <motion.div
-              className="fixed inset-0 flex justify-center items-center z-[9999] pointer-events-none px-6 w-[100vw] h-[100vh]"
+              className="fixed top-0 left-0 w-full h-full flex justify-center items-center z-[9999] pointer-events-none px-6"
               variants={{
                 initial: { opacity: 0 },
                 animate: { 
@@ -177,7 +177,7 @@ export default function GlobalCurveOverlay() {
               animate="animate"
               exit="exit"
             >
-              <h2 className="text-white text-2xl md:text-3xl font-inter font-normal text-center m-0 p-0 tracking-wide opacity-90 whitespace-pre-wrap break-words max-w-full" style={{ transform: 'translateZ(0)' }}>
+              <h2 className="w-full text-white text-2xl md:text-3xl font-inter font-normal text-center m-0 p-0 tracking-wide opacity-90 whitespace-normal break-words" style={{ transform: 'translateZ(0)' }}>
                 {targetRoute}
               </h2>
             </motion.div>
