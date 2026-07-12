@@ -124,65 +124,68 @@ export default function GlobalCurveOverlay() {
   return (
     <AnimatePresence>
       {isVisible && (
-        <>
-          {/* Animated Background Overlay */}
-          <motion.div 
-            className="fixed top-0 left-0 w-[100vw] bg-[#0d0709] z-[9998] pointer-events-none will-change-transform"
-            style={{ height: height }}
-            variants={containerVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-          >
-            {/* Top Curve */}
-            <svg className="absolute w-full" style={{ height: curveHeight, top: -curveHeight, left: 0 }} viewBox={`0 0 ${width} ${curveHeight}`} preserveAspectRatio="none">
-              <motion.path fill="#0d0709" variants={topPathVariants} />
-            </svg>
+        <motion.div 
+          className="fixed top-0 left-0 w-[100vw] bg-[#0d0709] z-[9998] pointer-events-none will-change-transform"
+          style={{ height: height }}
+          variants={containerVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+        >
+          {/* Top Curve */}
+          <svg className="absolute w-full" style={{ height: curveHeight, top: -curveHeight, left: 0 }} viewBox={`0 0 ${width} ${curveHeight}`} preserveAspectRatio="none">
+            <motion.path fill="#0d0709" variants={topPathVariants} />
+          </svg>
 
-            {/* Desktop Text Container */}
-            {!isAndroid && (
-              <motion.div
-                className="absolute top-0 left-0 w-full flex items-center justify-center pointer-events-none px-6"
-                style={{ height: height }}
-                variants={textVariants}
-              >
-                <h2 className="text-white text-3xl md:text-4xl lg:text-5xl font-inter font-normal text-center m-0 p-0 tracking-wide opacity-90 whitespace-normal break-words max-w-full">
-                  {targetRoute}
-                </h2>
-              </motion.div>
-            )}
-
-            {/* Bottom Curve */}
-            <svg className="absolute w-full" style={{ height: curveHeight, bottom: -curveHeight, left: 0 }} viewBox={`0 0 ${width} ${curveHeight}`} preserveAspectRatio="none">
-              <motion.path fill="#0d0709" variants={bottomPathVariants} />
-            </svg>
-          </motion.div>
-
-          {/* Android Text Container (Completely decoupled from the moving background) */}
-          {isAndroid && (
+          {/* Desktop Text Container */}
+          {!isAndroid && (
             <motion.div
-              className="fixed inset-0 flex justify-center items-center z-[9999] pointer-events-none px-6 w-[100vw] h-[100vh]"
-              variants={{
-                initial: { opacity: 0 },
-                animate: { 
-                  opacity: 1, 
-                  transition: { duration: 0.8, delay: 0.4, ease: [0.76, 0, 0.24, 1] as const } 
-                },
-                exit: { 
-                  opacity: 0, 
-                  transition: { duration: 0.8, delay: 0.1, ease: [0.76, 0, 0.24, 1] as const } 
-                }
-              }}
-              initial="initial"
-              animate="animate"
-              exit="exit"
+              className="absolute top-0 left-0 w-full flex items-center justify-center pointer-events-none px-6"
+              style={{ height: height }}
+              variants={textVariants}
             >
-              <h2 className="text-white text-2xl md:text-3xl font-inter font-normal text-center m-0 p-0 tracking-wide opacity-90 whitespace-pre-wrap break-words max-w-full" style={{ transform: 'translateZ(0)' }}>
+              <h2 className="text-white text-3xl md:text-4xl lg:text-5xl font-inter font-normal text-center m-0 p-0 tracking-wide opacity-90 whitespace-normal break-words max-w-full">
                 {targetRoute}
               </h2>
             </motion.div>
           )}
-        </>
+
+          {/* Android Text Container (Pop-up character effect, integrated inside the moving background) */}
+          {isAndroid && (
+            <div className="absolute top-0 left-0 w-full flex items-center justify-center pointer-events-none px-6" style={{ height: height }}>
+              <div className="flex flex-wrap justify-center items-center text-white text-2xl md:text-3xl lg:text-5xl font-plusJakartaSans tracking-tight w-full" style={{ fontWeight: 300 }}>
+                {targetRoute.split(' ').map((word: string, wordIndex: number, wordsArray: string[]) => (
+                  <span key={wordIndex} className="overflow-hidden relative flex items-center" style={{ paddingBottom: '0.1em', paddingTop: '0.1em' }}>
+                    {word.split('').map((char: string, charIndex: number) => {
+                      const absoluteIndex = wordsArray.slice(0, wordIndex).join('').length + charIndex;
+                      return (
+                        <motion.span
+                          key={charIndex}
+                          initial={{ y: "100%" }}
+                          animate={{ y: "0%" }}
+                          transition={{ 
+                            duration: 0.8, 
+                            ease: [0.76, 0, 0.24, 1] as any, 
+                            delay: absoluteIndex * 0.03 + 0.3 // Delay to start popping after overlay mostly covers screen
+                          }}
+                          className="flex items-center whitespace-pre"
+                        >
+                          {char}
+                        </motion.span>
+                      );
+                    })}
+                    {wordIndex !== wordsArray.length - 1 && <span className="flex items-center whitespace-pre">&nbsp;</span>}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Bottom Curve */}
+          <svg className="absolute w-full" style={{ height: curveHeight, bottom: -curveHeight, left: 0 }} viewBox={`0 0 ${width} ${curveHeight}`} preserveAspectRatio="none">
+            <motion.path fill="#0d0709" variants={bottomPathVariants} />
+          </svg>
+        </motion.div>
       )}
     </AnimatePresence>
   );
