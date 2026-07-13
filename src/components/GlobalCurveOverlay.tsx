@@ -62,16 +62,29 @@ export default function GlobalCurveOverlay() {
     }
     
     // When location changes, we want to animate IN the overlay (exit phase of the page)
-    setTargetRoute(getRouteName(location));
+    const currentText = getRouteName(location);
+    setTargetRoute(currentText);
     setIsVisible(true);
+
+    // Calculate how long to wait before animating OUT (make it responsive to text length on Android)
+    let timeoutDuration = 1200; // Fixed default time
+    if (isAndroid) {
+      const charCount = currentText.replace(/\s+/g, '').length;
+      // The last character's animation starts at maxDelay
+      const maxDelay = (charCount > 0 ? charCount - 1 : 0) * 0.03 + 0.3;
+      // The last character takes 0.8s to finish popping up
+      const totalAnimationTime = (maxDelay + 0.8) * 1000;
+      // Set the timeout so it waits for all text to appear, plus a 400ms readable pause
+      timeoutDuration = Math.max(1200, totalAnimationTime + 400); 
+    }
 
     // The overlay covers the screen for a bit, then animates OUT (enter phase of the page)
     const timeout = setTimeout(() => {
       setIsVisible(false);
-    }, 1200); // Wait for the 'exit' duration to finish before triggering 'enter'
+    }, timeoutDuration); // Wait for the 'exit' duration to finish before triggering 'enter'
 
     return () => clearTimeout(timeout);
-  }, [location.pathname]);
+  }, [location.pathname, isAndroid]);
 
   const curveHeight = 300;
   const { width, height } = dimensions;
