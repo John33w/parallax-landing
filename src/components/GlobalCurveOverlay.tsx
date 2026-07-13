@@ -72,10 +72,11 @@ export default function GlobalCurveOverlay() {
       const charCount = currentText.replace(/\s+/g, '').length;
       // The last character's animation starts at maxDelay
       const maxDelay = (charCount > 0 ? charCount - 1 : 0) * 0.03 + 0.3;
-      // The last character takes 0.8s to finish popping up
-      const totalAnimationTime = (maxDelay + 0.8) * 1000;
-      // Set the timeout so it waits for all text to appear, plus a 400ms readable pause
-      timeoutDuration = Math.max(1200, totalAnimationTime + 400); 
+      // The last character takes 0.8s to finish popping up.
+      // We use 0.6s here to start the exit transition just before the text fully settles, 
+      // which eliminates the "static" feeling and makes it extremely snappy.
+      const totalAnimationTime = (maxDelay + 0.6) * 1000;
+      timeoutDuration = totalAnimationTime; 
     }
 
     // The overlay covers the screen for a bit, then animates OUT (enter phase of the page)
